@@ -75,6 +75,7 @@ namespace FubarDev.FtpServer
             _log = logger;
             ServerAddress = serverOptions.Value.ServerAddress;
             Port = serverOptions.Value.Port;
+            MaxActiveConnectionCount = serverOptions.Value.MaxActiveConnectionCount;
         }
 
         /// <inheritdoc />
@@ -88,6 +89,9 @@ namespace FubarDev.FtpServer
 
         /// <inheritdoc />
         public int Port { get; }
+
+        /// <inheritdoc />
+        public int MaxActiveConnectionCount { get; }
 
         /// <inheritdoc />
         public bool Ready
@@ -252,17 +256,30 @@ namespace FubarDev.FtpServer
                 var connectionAccessor = scope.ServiceProvider.GetRequiredService<IFtpConnectionAccessor>();
                 connectionAccessor.FtpConnection = connection;
 
-                if (!_connections.TryAdd(connection, new FtpConnectionInfo(scope)))
+                if (_statistics.ActiveConnections >= MaxActiveConnectionCount)
                 {
+                    var response = new FtpResponse(10068, "Too many users, server is full.");
+                    connection.WriteAsync(response, CancellationToken.None).Wait();
+                    client.Close();
                     scope.Dispose();
-                    return;
                 }
+                else
+                {
+                    if (!_connections.TryAdd(connection, new FtpConnectionInfo(scope)))
+                    {
+                        scope.Dispose();
+                        return;
+                    }
+                    _statistics.ActiveConnections += 1;
+                    _statistics.TotalConnections += 1;
+                    _log?.LogTrace($"New connection! Username: {connection?.Data?.User?.Name}");
+                    _log?.LogTrace($"Active connections: {_statistics.ActiveConnections}");
+                    _log?.LogTrace($"Total connections: {_statistics.TotalConnections}");
 
-                _statistics.ActiveConnections += 1;
-                _statistics.TotalConnections += 1;
-                connection.Closed += ConnectionOnClosed;
-                OnConfigureConnection(connection);
-                connection.Start();
+                    connection.Closed += ConnectionOnClosed;
+                    OnConfigureConnection(connection);
+                    connection.Start();
+                }
             }
             catch (Exception ex)
             {

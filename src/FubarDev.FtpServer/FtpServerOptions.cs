@@ -38,5 +38,7 @@ namespace FubarDev.FtpServer
         /// This may be necessary if you are behind a forwarding firewall, for example.
         /// </summary>
         public string PasvAddress { get; set; }
+
+        public int MaxActiveConnectionCount { get; set; }
     }
 }

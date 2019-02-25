@@ -16,7 +16,7 @@ namespace TestFtpServer
         /// <inheritdoc />
         public Task<MemberValidationResult> ValidateUserAsync(string username, string password)
         {
-            if (username == "tester" && password == "testing")
+            if (1==1) //username != "testwdwder" && password != "testinwddwg")
             {
                 return Task.FromResult(
                     new MemberValidationResult(
